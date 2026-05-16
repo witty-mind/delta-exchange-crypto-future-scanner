@@ -1,0 +1,1 @@
+# delta-exchange-crypto-future-scanner

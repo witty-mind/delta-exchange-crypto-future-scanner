@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script>document.documentElement.classList.add("page-enter");</script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delta Futures</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0c0e12;
+            --surface: #14181f;
+            --surface-hover: #1a1f28;
+            --border: rgba(255, 255, 255, 0.06);
+            --text: rgba(255, 255, 255, 0.92);
+            --muted: rgba(255, 255, 255, 0.5);
+            --faint: rgba(255, 255, 255, 0.28);
+            --green: #3dd68c;
+            --green-dim: rgba(61, 214, 140, 0.12);
+            --red: #f56565;
+            --red-dim: rgba(245, 101, 101, 0.12);
+            --blue: #5b8def;
+            --blue-dim: rgba(91, 141, 239, 0.12);
+            --purple: #b794f6;
+            --purple-dim: rgba(183, 148, 246, 0.12);
+            /* Aliases for server-side alert colors */
+            --md-green: var(--green);
+            --md-red: var(--red);
+            --md-blue: var(--blue);
+            --md-purple: var(--purple);
+            --amber: #ed8936;
+            --amber-dim: rgba(237, 137, 54, 0.12);
+            --md-amber: var(--amber);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            background: var(--bg);
+            height: 100%;
+        }
+
+        body {
+            font-family: "DM Sans", system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100%;
+            min-height: 100dvh;
+            padding: clamp(8px, 1.2vw, 16px);
+            -webkit-font-smoothing: antialiased;
+            transition:
+                opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        html.page-enter body {
+            opacity: 0;
+            transform: translateY(14px) scale(0.992);
+        }
+
+        html.page-exit body {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.996);
+            transition:
+                opacity 0.32s cubic-bezier(0.4, 0, 1, 1),
+                transform 0.32s cubic-bezier(0.4, 0, 1, 1);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            body {
+                transition: none;
+            }
+
+            html.page-enter body,
+            html.page-exit body {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        .shell {
+            --shell-pad: clamp(8px, 1.2vw, 16px);
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            min-height: calc(100dvh - 2 * var(--shell-pad));
+            display: flex;
+            flex-direction: column;
+        }
+
+        header.top {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            flex-shrink: 0;
+        }
+
+        header.top h1 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        header.top p {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--muted);
+        }
+
+        .pill .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--faint);
+        }
+
+        .pill.live .dot {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+        }
+
+        .pill.off .dot {
+            background: var(--red);
+        }
+
+        .breadth {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            margin-bottom: 14px;
+            flex-shrink: 0;
+        }
+
+        .breadth-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .breadth-bar {
+            height: 8px;
+            border-radius: 4px;
+            display: flex;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .breadth-bar span {
+            height: 100%;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .breadth-bar .g {
+            background: var(--green);
+        }
+
+        .breadth-bar .r {
+            background: var(--red);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(280px, min(32vw, 440px));
+            gap: clamp(12px, 1.5vw, 20px);
+            align-items: start;
+            /* Change this from 'stretch' to 'start' */
+            margin-bottom: 14px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .main-grid>.scanner-grid,
+        .main-grid>.feed-card {
+            min-height: 0;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: minmax(320px, 52vh) minmax(260px, 38vh);
+            }
+        }
+
+        .scanner-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto auto;
+            gap: 14px;
+            height: auto;
+            min-height: 0;
+            align-content: stretch;
+        }
+
+        .scanner-grid .card--wide {
+            grid-column: 1 / -1;
+            max-height: none;
+        }
+
+        @media (max-width: 640px) {
+            .scanner-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: none;
+                height: auto;
+                min-height: min(80vh, 900px);
+            }
+
+            .scanner-grid .card--wide {
+                grid-column: auto;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .scanner-grid .card {
+            display: block;
+            /* Stops flex-grow behavior */
+            height: auto;
+            /* Allows it to shrink */
+            min-height: 0;
+        }
+
+        .card-head {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .card-head h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+
+        .card-head .hint {
+            font-size: 0.68rem;
+            color: var(--faint);
+            font-weight: 400;
+            max-width: 55%;
+            text-align: right;
+        }
+
+        .count {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .table-scroll {
+            flex: 1;
+            overflow: auto;
+            min-height: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            text-align: right;
+            padding: 8px 12px;
+            font-weight: 500;
+            color: var(--faint);
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        thead th:first-child {
+            text-align: left;
+        }
+
+        tbody td {
+            padding: 8px 12px;
+            text-align: right;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text);
+        }
+
+        tbody td:first-child {
+            text-align: left;
+            font-weight: 500;
+        }
+
+        tbody tr:hover td {
+            background: var(--surface-hover);
+        }
+
+        .mono {
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum";
+        }
+
+        .up {
+            color: var(--green);
+        }
+
+        .down {
+            color: var(--red);
+        }
+
+        .feed-card {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+        }
+
+        .feed-card .table-scroll {
+            padding: 0;
+            height: calc(100vh - 49px); /* subtract card-head height */
+            overflow-y: auto;
+        }
+
+        .signal-head,
+        .signal-row {
+            display: grid;
+            grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1.1fr) 72px 1fr;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 14px;
+            font-size: 0.76rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .signal-head {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: rgba(12, 14, 18, 0.92);
+            backdrop-filter: blur(8px);
+            font-weight: 600;
+            color: var(--faint);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 0.65rem;
+        }
+
+        .signal-row {
+            border-left: 3px solid transparent;
+        }
+
+        .signal-row.new {
+            animation: flash 1.4s ease-out;
+        }
+
+        @keyframes flash {
+            from {
+                background: rgba(91, 141, 239, 0.15);
+            }
+
+            to {
+                background: transparent;
+            }
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .btn {
+            font-family: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            color: var(--text);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .futures-section {
+            margin-top: 0;
+            flex-shrink: 0;
+            min-height: 0;
+        }
+
+        .futures-section .card {
+            min-height: auto;
+            /* Allow it to be small if content is small */
+            max-height: auto;
+        }
+
+        @media (max-width: 1024px) {
+            .futures-section .card {
+                min-height: 280px;
+                max-height: min(50vh, 560px);
+            }
+        }
+
+        .futures-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .empty-cell {
+            text-align: center;
+            padding: 28px 16px !important;
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        #notifications {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: min(360px, calc(100vw - 40px));
+        }
+
+        .toast {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            animation: in 0.25s ease-out;
+        }
+
+        @keyframes in {
+            from {
+                transform: translateX(12px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 720px) {
+
+            .signal-head,
+            .signal-row {
+                grid-template-columns: 48px 1fr 1fr;
+                grid-template-rows: auto auto;
+            }
+
+            .signal-head div:nth-child(4),
+            .signal-head div:nth-child(5),
+            .signal-row div:nth-child(4),
+            .signal-row div:nth-child(5) {
+                grid-column: 1 / -1;
+            }
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+
+<body>
+    <div id="notifications"></div>
+    <div class="shell">
+        <header class="top">
+            <div>
+                <h1>Crypto Scanners - Delta</h1>
+                <p>IST prior session levels · 5m EMA 10 / 20 / 100 · 5m Ichimoku stack</p>
+            </div>
+            <div class="meta">
+                <span id="live-pill" class="pill off"><span class="dot"></span> Feed</span>
+                <span id="total-count" class="pill">…</span>
+            </div>
+        </header>
+
+        <section class="breadth" aria-label="Market breadth">
+            <div class="breadth-top">
+                <span class="up" id="gainers-label">Gainers 0%</span>
+                <span class="down" id="losers-label">Losers 0%</span>
+            </div>
+            <div class="breadth-bar">
+                <span id="gainers-bar" class="g" style="width:0%"></span>
+                <span id="losers-bar" class="r" style="width:0%"></span>
+            </div>
+        </section>
+
+        <div class="main-grid">
+            <div class="scanner-grid">
+                <div class="card">
+                    <div class="card-head">
+                        <h2>Above prior day high</h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="pdh-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="pdh-count" style="background:var(--green-dim);color:var(--green)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Mark</th>
+                                    <th>Above</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdh-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-head">
+                        <h2>Below prior day low</h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="pdl-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="pdl-count" style="background:var(--red-dim);color:var(--red)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Mark</th>
+                                    <th>Below</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdl-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-head">
+                        <h2>Above 10 / 20 / 100 EMA</h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ema-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ema-count" style="background:var(--blue-dim);color:var(--blue)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Mark</th>
+                                    <th>10</th>
+                                    <th>20</th>
+                                    <th>100</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ema-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-head">
+                        <h2>PDH + EMA stack</h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="conf-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="conf-count" style="background:var(--purple-dim);color:var(--purple)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Mark</th>
+                                    <th>vs 100</th>
+                                </tr>
+                            </thead>
+                            <tbody id="conf-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card card--wide">
+                    <div class="card-head">
+                        <h2>Ichimoku stack <span class="hint" style="max-width:none">9·26·52 · RVOL vs prior 50 · OI 5m</span></h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-count" style="background:var(--amber-dim);color:var(--amber)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>RVOL</th>
+                                    <th>Ten / Kij</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card card--wide">
+                    <div class="card-head">
+                        <h2>Ichimoku bear <span class="hint" style="max-width:none">9·26·52 · below cloud · TK↓ · RVOL vs prior 50 · OI 5m</span></h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-bear-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-bear-count" style="background:var(--red-dim);color:var(--red)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>RVOL</th>
+                                    <th>Ten / Kij</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-bear-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card feed-card">
+                <div class="card-head">
+                    <h2>Live alerts <span id="feed-time" style="font-size:0.65rem;color:var(--faint);font-weight:400;margin-left:6px"></span></h2>
+                    <button type="button" class="btn" id="clear-log">Clear</button>
+                </div>
+                <div class="table-scroll">
+                    <div class="signal-head">
+                        <div>Time</div>
+                        <div>Pair</div>
+                        <div>Signal</div>
+                        <div>Price</div>
+                        <div>Note</div>
+                    </div>
+                    <div id="signal-log">
+                        <div class="empty-cell">Waiting for socket…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section class="futures-section" aria-label="All perpetual contracts">
+            <div class="card">
+                <div class="card-head">
+                    <div class="futures-head">
+                        <h2>All perpetual futures</h2>
+                        <button type="button" class="btn" id="sort-btn">Gainers first</button>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Mark</th>
+                                <th>24h</th>
+                                <th>High</th>
+                                <th>Low</th>
+                            </tr>
+                        </thead>
+                        <tbody id="futures-body">
+                            <tr>
+                                <td class="empty-cell" colspan="5">Fetching perpetual list from server…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+    <script>
+        (function () {
+            function reveal() {
+                document.documentElement.classList.remove("page-enter");
+            }
+            function exit() {
+                document.documentElement.classList.add("page-exit");
+            }
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", function () {
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(reveal);
+                    });
+                });
+            } else {
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(reveal);
+                });
+            }
+            window.addEventListener("beforeunload", exit);
+            window.addEventListener("pagehide", function (e) {
+                if (!e.persisted) exit();
+            });
+        })();
+
+        function fmt(n, d = 2) {
+            if (n === null || n === undefined || n === '') return '—';
+            const x = Number(n);
+            if (Number.isNaN(x)) return '—';
+            return x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+        }
+
+        function nowTime() {
+            return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function emptyRows(colspan, msg) {
+            return `<tr><td class="empty-cell" colspan="${colspan}">${msg}</td></tr>`;
+        }
+
+        document.getElementById('clear-log').onclick = () => {
+            const log = document.getElementById('signal-log');
+            log.innerHTML = '<div class="empty-cell">Log cleared.</div>';
+        };
+
+        let reverseSort = false;
+        let cachedFutures = [];
+
+        document.getElementById('sort-btn').onclick = () => {
+            reverseSort = !reverseSort;
+            document.getElementById('sort-btn').textContent = reverseSort ? 'Losers first' : 'Gainers first';
+            renderFutures(cachedFutures);
+        };
+
+        function renderFutures(data) {
+            cachedFutures = Array.isArray(data) ? data : [];
+            const tb = document.getElementById('futures-body');
+            if (!cachedFutures.length) {
+                tb.innerHTML = emptyRows(5, 'No perpetual list yet — is the server running and able to reach Delta?');
+                return;
+            }
+            const list = reverseSort ? [...cachedFutures].reverse() : [...cachedFutures];
+            tb.innerHTML = list.map(d => {
+                const pend = d.pending ? ' style="opacity:0.72"' : '';
+                const ch = d.change_24h;
+                const hasCh = ch !== null && ch !== undefined && !Number.isNaN(Number(ch));
+                const cls = !hasCh ? '' : ch > 0 ? 'up' : ch < 0 ? 'down' : '';
+                const sign = hasCh && ch > 0 ? '+' : '';
+                const pct = hasCh ? `${sign}${fmt(ch, 2)}%` : '—';
+                return `<tr${pend}>
+                    <td>${d.symbol}${d.pending ? ' <span style="font-size:0.65rem;color:var(--muted)">(prices soon)</span>' : ''}</td>
+                    <td class="mono">${fmt(d.mark_price, 4)}</td>
+                    <td class="mono ${cls}">${pct}</td>
+                    <td class="mono">${fmt(d.high_24h, 4)}</td>
+                    <td class="mono">${fmt(d.low_24h, 4)}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function load(url, cb, errCb) {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 18000);
+            fetch(url, { signal: ctrl.signal })
+                .then(r => {
+                    clearTimeout(t);
+                    if (!r.ok) throw new Error(String(r.status));
+                    return r.json();
+                })
+                .then(cb)
+                .catch(() => {
+                    clearTimeout(t);
+                    if (errCb) errCb();
+                });
+        }
+
+        function refresh() {
+            load('/market-breadth', d => {
+                document.getElementById('gainers-label').textContent = 'Gainers ' + d.gainers_pct + '%';
+                document.getElementById('losers-label').textContent = 'Losers ' + d.losers_pct + '%';
+                document.getElementById('gainers-bar').style.width = d.gainers_pct + '%';
+                document.getElementById('losers-bar').style.width = d.losers_pct + '%';
+                document.getElementById('total-count').textContent = d.total + ' live perpetuals';
+            });
+
+            load('/futures', renderFutures, () => {
+                document.getElementById('futures-body').innerHTML = emptyRows(5, 'Could not load futures. Check network or API.');
+            });
+
+            load('/above-pdh', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 20).map(d => `<tr><td>${d.symbol}</td><td class="mono">${fmt(d.mark_price, 4)}</td><td class="up">+${fmt(d.pct_above)}%</td></tr>`).join('')
+                    : emptyRows(3, 'No matches');
+                document.getElementById('pdh-count').textContent = all.length;
+                document.getElementById('pdh-time').textContent = nowTime();
+                document.getElementById('pdh-body').innerHTML = rows;
+            });
+
+            load('/below-pdl', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 20).map(d => `<tr><td>${d.symbol}</td><td class="mono">${fmt(d.mark_price, 4)}</td><td class="down">−${fmt(d.pct_below)}%</td></tr>`).join('')
+                    : emptyRows(3, 'No matches');
+                document.getElementById('pdl-count').textContent = all.length;
+                document.getElementById('pdl-time').textContent = nowTime();
+                document.getElementById('pdl-body').innerHTML = rows;
+            });
+
+            load('/above-ema', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 20).map(d => `<tr>
+                        <td>${d.symbol}</td>
+                        <td class="mono">${fmt(d.mark_price, 4)}</td>
+                        <td class="mono">${fmt(d.ema_10, 4)}</td>
+                        <td class="mono">${fmt(d.ema_20, 4)}</td>
+                        <td class="mono">${fmt(d.ema_100, 4)}</td>
+                    </tr>`).join('')
+                    : emptyRows(5, 'No matches (EMAs need ~100×5m bars)');
+                document.getElementById('ema-count').textContent = all.length;
+                document.getElementById('ema-time').textContent = nowTime();
+                document.getElementById('ema-body').innerHTML = rows;
+            });
+
+            load('/pdh-ema-confluence', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 20).map(d => `<tr>
+                        <td>${d.symbol}</td>
+                        <td class="mono">${fmt(d.mark_price, 4)}</td>
+                        <td class="up">+${fmt(d.pct_above_100)}%</td>
+                    </tr>`).join('')
+                    : emptyRows(3, 'No matches');
+                document.getElementById('conf-count').textContent = all.length;
+                document.getElementById('conf-time').textContent = nowTime();
+                document.getElementById('conf-body').innerHTML = rows;
+            });
+
+            load('/ichimoku-stack', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 20).map(d => `<tr>
+                        <td>${d.symbol}</td>
+                        <td class="mono">${fmt(d.close, 4)}</td>
+                        <td class="mono up">${fmt(d.rvol, 2)}</td>
+                        <td class="mono">${fmt(d.tenkan, 4)} / ${fmt(d.kijun, 4)}</td>
+                    </tr>`).join('')
+                    : emptyRows(4, 'No matches (last closed 5m bar: cloud + TK + lagging + RVOL + OI; needs OI: history)');
+                document.getElementById('ichi-count').textContent = all.length;
+                document.getElementById('ichi-time').textContent = nowTime();
+                document.getElementById('ichi-body').innerHTML = rows;
+            });
+
+            load('/ichimoku-bear', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 20).map(d => `<tr>
+                        <td>${d.symbol}</td>
+                        <td class="mono">${fmt(d.close, 4)}</td>
+                        <td class="mono down">${fmt(d.rvol, 2)}</td>
+                        <td class="mono">${fmt(d.tenkan, 4)} / ${fmt(d.kijun, 4)}</td>
+                    </tr>`).join('')
+                    : emptyRows(4, 'No matches (last closed 5m bar: below cloud + TK↓ + lagging↓ + RVOL + OI; needs OI: history)');
+                document.getElementById('ichi-bear-count').textContent = all.length;
+                document.getElementById('ichi-bear-time').textContent = nowTime();
+                document.getElementById('ichi-bear-body').innerHTML = rows;
+            });
+        }
+
+        setInterval(refresh, 10000);
+        refresh();
+
+        const livePill = document.getElementById('live-pill');
+        if (typeof io === 'function') {
+            const socket = io({ transports: ['websocket', 'polling'] });
+            socket.on('connect', () => {
+                livePill.classList.add('live');
+                livePill.classList.remove('off');
+                livePill.innerHTML = '<span class="dot"></span> Live';
+            });
+            socket.on('disconnect', () => {
+                livePill.classList.remove('live');
+                livePill.classList.add('off');
+                livePill.innerHTML = '<span class="dot"></span> Offline';
+            });
+            socket.on('signal_alert', data => {
+                const log = document.getElementById('signal-log');
+                const first = log.querySelector('.empty-cell');
+                if (first) first.remove();
+
+                const row = document.createElement('div');
+                row.className = 'signal-row' + (data.is_historical ? '' : ' new');
+                row.style.borderLeftColor = data.color || 'var(--blue)';
+                row.innerHTML = `
+                <div style="color:var(--muted)">${data.time}</div>
+                <div style="font-weight:600">${data.symbol}</div>
+                <div><span class="tag" style="background:${data.color}22;color:${data.color};border:1px solid ${data.color}44">${data.type}</span></div>
+                <div class="mono">${fmt(data.price, 4)}</div>
+                <div style="color:var(--muted);font-size:0.72rem">${data.detail}</div>
+            `;
+                log.prepend(row);
+                document.getElementById('feed-time').textContent = nowTime();
+
+                // Keep live feed capped at 20 rows
+                const signalRows = log.querySelectorAll('.signal-row');
+                if (signalRows.length > 20) {
+                    for (let k = 20; k < signalRows.length; k++) signalRows[k].remove();
+                }
+
+                if (!data.is_historical) {
+                    const t = document.createElement('div');
+                    t.className = 'toast';
+                    t.style.borderLeft = `3px solid ${data.color || 'var(--blue)'}`;
+                    t.innerHTML = `<strong>${data.symbol}</strong> · ${data.type}<br><span style="color:var(--muted);font-size:0.75rem">${data.detail}</span>`;
+                    document.getElementById('notifications').prepend(t);
+                    setTimeout(() => t.remove(), 5200);
+                    document.getElementById('alertSound').play().catch(() => { });
+                }
+            });
+        } else {
+            livePill.innerHTML = '<span class="dot"></span> No feed';
+        }
+    </script>
+</body>
+
+</html>

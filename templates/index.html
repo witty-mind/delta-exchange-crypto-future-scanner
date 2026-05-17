@@ -637,7 +637,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="card card--wide">
+                <div class="card">
                     <div class="card-head">
                         <h2>Ichimoku stack <span class="hint" style="max-width:none">9·26·52 · RVOL vs prior 50 · OI 5m</span></h2>
                         <div style="display:flex;align-items:center;gap:8px">
@@ -659,7 +659,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="card card--wide">
+                <div class="card">
                     <div class="card-head">
                         <h2>Ichimoku bear <span class="hint" style="max-width:none">9·26·52 · below cloud · TK↓ · RVOL vs prior 50 · OI 5m</span></h2>
                         <div style="display:flex;align-items:center;gap:8px">
@@ -681,7 +681,72 @@
                         </table>
                     </div>
                 </div>
-            </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!--  ICHIMOKU CLASSIC  (pure signal: TK × + Chikou + cloud breakout)  -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="card">
+                    <div class="card-head">
+                        <div style="display:flex;flex-direction:column;gap:2px">
+                            <h2>Ichimoku Classic
+                                <span style="font-size:0.68rem;font-weight:400;color:var(--green);margin-left:6px">&#9650; Bullish</span>
+                            </h2>
+                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
+                                TK crossover ↑ &nbsp;·&nbsp; Chikou (Lagging Span) above price &nbsp;·&nbsp; Cloud breakout ↑
+                            </span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-classic-bull-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-classic-bull-count" style="background:var(--green-dim);color:var(--green)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>Ten / Kij</th>
+                                    <th>Senkou A</th>
+                                    <th>Senkou B</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-classic-bull-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <div style="display:flex;flex-direction:column;gap:2px">
+                            <h2>Ichimoku Classic
+                                <span style="font-size:0.68rem;font-weight:400;color:var(--red);margin-left:6px">&#9660; Bearish</span>
+                            </h2>
+                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
+                                TK crossover ↓ &nbsp;·&nbsp; Chikou (Lagging Span) below price &nbsp;·&nbsp; Cloud breakdown ↓
+                            </span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-classic-bear-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-classic-bear-count" style="background:var(--red-dim);color:var(--red)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>Ten / Kij</th>
+                                    <th>Senkou A</th>
+                                    <th>Senkou B</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-classic-bear-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div><!-- /.scanner-grid -->
 
             <div class="card feed-card">
                 <div class="card-head">
@@ -927,6 +992,40 @@
                 document.getElementById('ichi-bear-count').textContent = all.length;
                 document.getElementById('ichi-bear-time').textContent = nowTime();
                 document.getElementById('ichi-bear-body').innerHTML = rows;
+            });
+
+            load('/ichimoku-classic-bull', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 30).map(d => `<tr>
+                        <td>${d.symbol}</td>
+                        <td class="mono up">${fmt(d.close, 4)}</td>
+                        <td class="mono">${fmt(d.tenkan, 4)} / ${fmt(d.kijun, 4)}</td>
+                        <td class="mono" style="color:var(--green)">${fmt(d.senkou_a, 4)}</td>
+                        <td class="mono" style="color:var(--green)">${fmt(d.senkou_b, 4)}</td>
+                    </tr>`).join('')
+                    : emptyRows(5, 'No matches — waiting for TK crossover ↑ + Chikou above + cloud breakout');
+                document.getElementById('ichi-classic-bull-count').textContent = all.length;
+                document.getElementById('ichi-classic-bull-time').textContent = nowTime();
+                document.getElementById('ichi-classic-bull-body').innerHTML = rows;
+            });
+
+            load('/ichimoku-classic-bear', res =>
+            {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 30).map(d => `<tr>
+                        <td>${d.symbol}</td>
+                        <td class="mono down">${fmt(d.close, 4)}</td>
+                        <td class="mono">${fmt(d.tenkan, 4)} / ${fmt(d.kijun, 4)}</td>
+                        <td class="mono" style="color:var(--red)">${fmt(d.senkou_a, 4)}</td>
+                        <td class="mono" style="color:var(--red)">${fmt(d.senkou_b, 4)}</td>
+                    </tr>`).join('')
+                    : emptyRows(5, 'No matches — waiting for TK crossover ↓ + Chikou below + cloud breakdown');
+                document.getElementById('ichi-classic-bear-count').textContent = all.length;
+                document.getElementById('ichi-classic-bear-time').textContent = nowTime();
+                document.getElementById('ichi-classic-bear-body').innerHTML = rows;
             });
         }
 

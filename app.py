@@ -28,6 +28,8 @@ class DataCache:
         self.pdh_ema_confluence: list = []
         self.ichimoku_stack: list = []
         self.ichimoku_bear: list = []
+        self.ichimoku_classic_bull: list = []
+        self.ichimoku_classic_bear: list = []
         self.futures_ready = False       
         self.ohlc_ready = False
         self.ema_ready = False
@@ -35,6 +37,8 @@ class DataCache:
         self.last_confluence_symbols = set()
         self.last_ichimoku_symbols = set()
         self.last_ichimoku_bear_symbols = set()
+        self.last_ichimoku_classic_bull_symbols = set()
+        self.last_ichimoku_classic_bear_symbols = set()
 
     def set_futures(self, data: list):
         with self._lock: self.futures = data
@@ -72,6 +76,18 @@ class DataCache:
 
     def get_ichimoku_bear(self) -> list:
         with self._lock: return list(self.ichimoku_bear)
+
+    def set_ichimoku_classic_bull(self, data: list):
+        with self._lock: self.ichimoku_classic_bull = data
+
+    def get_ichimoku_classic_bull(self) -> list:
+        with self._lock: return list(self.ichimoku_classic_bull)
+
+    def set_ichimoku_classic_bear(self, data: list):
+        with self._lock: self.ichimoku_classic_bear = data
+
+    def get_ichimoku_classic_bear(self) -> list:
+        with self._lock: return list(self.ichimoku_classic_bear)
 
     def get_futures_table(self) -> list:
         with self._lock:
@@ -413,6 +429,165 @@ def try_ichimoku_bear_match(symbol: str, bars: list, start: int, end: int) -> di
     }
 
 
+
+def try_ichimoku_classic_bull(symbol: str, bars: list) -> dict | None:
+    """Ichimoku Classic bullish scan — pure signal, no RVOL/OI filter.
+
+    Conditions on the last fully closed 5m bar (index i):
+    1. TK Crossover: tenkan[i] > kijun[i]  AND  tenkan[i-1] <= kijun[i-1]
+    2. Chikou (Lagging Span) above price 26 bars ago: close[i] > close[i-26]
+    3. Cloud breakout: close[i] > senkou_a AND close[i] > senkou_b,
+       AND close[i-1] was AT or BELOW the cloud top (just broke out)
+
+    Cloud at bar i is calculated from j = i-26 (standard 26-bar displacement).
+    Cloud at bar i-1 is calculated from j-1 = i-27.
+    """
+    if len(bars) < ICHIMOKU_MIN_INDEX + 2:
+        return None
+    i = _last_closed_bar_index(bars)
+    if i is None or i < ICHIMOKU_MIN_INDEX + 1:
+        return None
+
+    highs  = [b["high"]  for b in bars]
+    lows   = [b["low"]   for b in bars]
+    closes = [b["close"] for b in bars]
+    close_i  = closes[i]
+    close_i1 = closes[i - 1]
+
+    # --- Condition 1: TK crossover (Tenkan crosses above Kijun) ---
+    ten_i  = _donchian_mid(highs, lows, i,     9)
+    kij_i  = _donchian_mid(highs, lows, i,    26)
+    ten_i1 = _donchian_mid(highs, lows, i - 1, 9)
+    kij_i1 = _donchian_mid(highs, lows, i - 1, 26)
+    if None in (ten_i, kij_i, ten_i1, kij_i1):
+        return None
+    if not (ten_i > kij_i and ten_i1 <= kij_i1):
+        return None
+
+    # --- Condition 2: Chikou (Lagging Span) above price 26 bars back ---
+    if close_i <= closes[i - 26]:
+        return None
+
+    # --- Condition 3: Cloud breakout (current bar above cloud, prev bar at/below cloud) ---
+    # Cloud applicable to bar i is built from j = i-26
+    j = i - 26
+    ta_j  = _donchian_mid(highs, lows, j, 9)
+    kj_j  = _donchian_mid(highs, lows, j, 26)
+    sb_j  = _donchian_mid(highs, lows, j, 52)
+    if None in (ta_j, kj_j, sb_j):
+        return None
+    senkou_a = (ta_j + kj_j) / 2.0
+    senkou_b = sb_j
+    cloud_top = max(senkou_a, senkou_b)
+
+    # Current bar must be above both cloud boundaries
+    if not (close_i > senkou_a and close_i > senkou_b):
+        return None
+
+    # Cloud applicable to bar i-1 is built from j-1 = i-27
+    j1 = i - 27
+    ta_j1 = _donchian_mid(highs, lows, j1, 9)
+    kj_j1 = _donchian_mid(highs, lows, j1, 26)
+    sb_j1 = _donchian_mid(highs, lows, j1, 52)
+    if None in (ta_j1, kj_j1, sb_j1):
+        return None
+    sa_prev = (ta_j1 + kj_j1) / 2.0
+    sb_prev = sb_j1
+    cloud_top_prev = max(sa_prev, sb_prev)
+
+    # Previous bar must have been AT or INSIDE/BELOW the cloud (breakout just happened)
+    if close_i1 > cloud_top_prev:
+        return None
+
+    return {
+        "symbol":   symbol,
+        "close":    close_i,
+        "mark_price": close_i,
+        "senkou_a": round(senkou_a, 6),
+        "senkou_b": round(senkou_b, 6),
+        "tenkan":   round(ten_i, 6),
+        "kijun":    round(kij_i, 6),
+        "chikou_vs_price": round(closes[i - 26], 6),
+    }
+
+
+def try_ichimoku_classic_bear(symbol: str, bars: list) -> dict | None:
+    """Ichimoku Classic bearish scan — exact mirror of the bullish scan.
+
+    Conditions on the last fully closed 5m bar (index i):
+    1. TK Crossover: tenkan[i] < kijun[i]  AND  tenkan[i-1] >= kijun[i-1]
+    2. Chikou (Lagging Span) below price 26 bars ago: close[i] < close[i-26]
+    3. Cloud breakdown: close[i] < senkou_a AND close[i] < senkou_b,
+       AND close[i-1] was AT or ABOVE the cloud bottom (just broke down)
+    """
+    if len(bars) < ICHIMOKU_MIN_INDEX + 2:
+        return None
+    i = _last_closed_bar_index(bars)
+    if i is None or i < ICHIMOKU_MIN_INDEX + 1:
+        return None
+
+    highs  = [b["high"]  for b in bars]
+    lows   = [b["low"]   for b in bars]
+    closes = [b["close"] for b in bars]
+    close_i  = closes[i]
+    close_i1 = closes[i - 1]
+
+    # --- Condition 1: TK crossover (Tenkan crosses below Kijun) ---
+    ten_i  = _donchian_mid(highs, lows, i,     9)
+    kij_i  = _donchian_mid(highs, lows, i,    26)
+    ten_i1 = _donchian_mid(highs, lows, i - 1, 9)
+    kij_i1 = _donchian_mid(highs, lows, i - 1, 26)
+    if None in (ten_i, kij_i, ten_i1, kij_i1):
+        return None
+    if not (ten_i < kij_i and ten_i1 >= kij_i1):
+        return None
+
+    # --- Condition 2: Chikou (Lagging Span) below price 26 bars back ---
+    if close_i >= closes[i - 26]:
+        return None
+
+    # --- Condition 3: Cloud breakdown (current bar below cloud, prev bar at/above cloud) ---
+    j = i - 26
+    ta_j = _donchian_mid(highs, lows, j, 9)
+    kj_j = _donchian_mid(highs, lows, j, 26)
+    sb_j = _donchian_mid(highs, lows, j, 52)
+    if None in (ta_j, kj_j, sb_j):
+        return None
+    senkou_a = (ta_j + kj_j) / 2.0
+    senkou_b = sb_j
+    cloud_bot = min(senkou_a, senkou_b)
+
+    # Current bar must be below both cloud boundaries
+    if not (close_i < senkou_a and close_i < senkou_b):
+        return None
+
+    # Cloud applicable to bar i-1 is built from j-1 = i-27
+    j1 = i - 27
+    ta_j1 = _donchian_mid(highs, lows, j1, 9)
+    kj_j1 = _donchian_mid(highs, lows, j1, 26)
+    sb_j1 = _donchian_mid(highs, lows, j1, 52)
+    if None in (ta_j1, kj_j1, sb_j1):
+        return None
+    sa_prev = (ta_j1 + kj_j1) / 2.0
+    sb_prev = sb_j1
+    cloud_bot_prev = min(sa_prev, sb_prev)
+
+    # Previous bar must have been AT or INSIDE/ABOVE the cloud (breakdown just happened)
+    if close_i1 < cloud_bot_prev:
+        return None
+
+    return {
+        "symbol":   symbol,
+        "close":    close_i,
+        "mark_price": close_i,
+        "senkou_a": round(senkou_a, 6),
+        "senkou_b": round(senkou_b, 6),
+        "tenkan":   round(ten_i, 6),
+        "kijun":    round(kij_i, 6),
+        "chikou_vs_price": round(closes[i - 26], 6),
+    }
+
+
 def calc_emas(prices):
     if len(prices) < 100: return None
     def ema(p, n):
@@ -490,6 +665,8 @@ def ema_refresh_loop():
                 res = {}
                 ich_list = []
                 ich_bear_list = []
+                ich_classic_bull_list = []
+                ich_classic_bear_list = []
 
                 def load_5m(sym):
                     _, bars = fetch_5m_ohlcv_one(sym, start, end)
@@ -497,7 +674,9 @@ def ema_refresh_loop():
                     e = calc_emas(closes) if len(closes) >= 100 else None
                     bull = try_ichimoku_stack_match(sym, bars, start, end)
                     bear = try_ichimoku_bear_match(sym, bars, start, end)
-                    return sym, e, bull, bear
+                    classic_bull = try_ichimoku_classic_bull(sym, bars)
+                    classic_bear = try_ichimoku_classic_bear(sym, bars)
+                    return sym, e, bull, bear, classic_bull, classic_bear
 
                 with ThreadPoolExecutor(max_workers=20) as ex:
                     syms = [f.get("symbol") for f in cache.futures if f.get("symbol")]
@@ -505,7 +684,7 @@ def ema_refresh_loop():
                     for fut in as_completed(f_map):
                         sym = f_map[fut]
                         try:
-                            _, e, bull, bear = fut.result()
+                            _, e, bull, bear, cb, cbear = fut.result()
                         except Exception as exc:
                             log.debug("5m batch %s: %s", sym, exc)
                             continue
@@ -515,9 +694,15 @@ def ema_refresh_loop():
                             ich_list.append(bull)
                         if bear:
                             ich_bear_list.append(bear)
+                        if cb:
+                            ich_classic_bull_list.append(cb)
+                        if cbear:
+                            ich_classic_bear_list.append(cbear)
                 cache.set_emas(res)
                 cache.set_ichimoku_stack(sorted(ich_list, key=lambda x: x["rvol"], reverse=True))
                 cache.set_ichimoku_bear(sorted(ich_bear_list, key=lambda x: x["rvol"], reverse=True))
+                cache.set_ichimoku_classic_bull(sorted(ich_classic_bull_list, key=lambda x: x["close"], reverse=True))
+                cache.set_ichimoku_classic_bear(sorted(ich_classic_bear_list, key=lambda x: x["close"], reverse=True))
         except Exception as err: log.error("EMA Error: %s", err)
         time.sleep(300)
 
@@ -608,10 +793,42 @@ def ticker_refresh_loop():
                             "is_historical": first_run,
                         })
 
+                    classic_bull_data = cache.get_ichimoku_classic_bull()
+                    curr_classic_bull = {x["symbol"] for x in classic_bull_data}
+                    new_classic_bull = (curr_classic_bull if first_run else (curr_classic_bull - cache.last_ichimoku_classic_bull_symbols))
+                    for s in new_classic_bull:
+                        d = next(i for i in classic_bull_data if i["symbol"] == s)
+                        socketio.emit("signal_alert", {
+                            "type": "ICHIMOKU CLASSIC BULL",
+                            "symbol": s,
+                            "price": d["close"],
+                            "detail": "TK cross ↑ · Chikou above · Cloud breakout ↑",
+                            "color": "var(--green)",
+                            "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                            "is_historical": first_run,
+                        })
+
+                    classic_bear_data = cache.get_ichimoku_classic_bear()
+                    curr_classic_bear = {x["symbol"] for x in classic_bear_data}
+                    new_classic_bear = (curr_classic_bear if first_run else (curr_classic_bear - cache.last_ichimoku_classic_bear_symbols))
+                    for s in new_classic_bear:
+                        d = next(i for i in classic_bear_data if i["symbol"] == s)
+                        socketio.emit("signal_alert", {
+                            "type": "ICHIMOKU CLASSIC BEAR",
+                            "symbol": s,
+                            "price": d["close"],
+                            "detail": "TK cross ↓ · Chikou below · Cloud breakdown ↓",
+                            "color": "var(--red)",
+                            "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                            "is_historical": first_run,
+                        })
+
                     cache.last_ema_symbols = curr_ema
                     cache.last_confluence_symbols = curr_conf
                     cache.last_ichimoku_symbols = curr_ich
                     cache.last_ichimoku_bear_symbols = curr_bear
+                    cache.last_ichimoku_classic_bull_symbols = curr_classic_bull
+                    cache.last_ichimoku_classic_bear_symbols = curr_classic_bear
                     first_run = False
         except Exception as err: log.error("Ticker Error: %s", err)
         time.sleep(10)
@@ -689,6 +906,44 @@ def ichimoku_bear_route():
             live.append(d)
     return jsonify({"status": "ok", "data": live})
 
+@app.route("/ichimoku-classic-bull")
+def ichimoku_classic_bull_route():
+    data = cache.get_ichimoku_classic_bull()
+    tickers = cache.tickers
+    live = []
+    for d in data:
+        t = tickers.get(d["symbol"])
+        if not t:
+            continue
+        try:
+            mp = float(t.get("mark_price", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        # Re-filter: live mark price still above both cloud boundaries
+        if mp > d["senkou_a"] and mp > d["senkou_b"]:
+            live.append({**d, "mark_price": mp})
+    return jsonify({"status": "ok", "data": live})
+
+
+@app.route("/ichimoku-classic-bear")
+def ichimoku_classic_bear_route():
+    data = cache.get_ichimoku_classic_bear()
+    tickers = cache.tickers
+    live = []
+    for d in data:
+        t = tickers.get(d["symbol"])
+        if not t:
+            continue
+        try:
+            mp = float(t.get("mark_price", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        # Re-filter: live mark price still below both cloud boundaries
+        if mp < d["senkou_a"] and mp < d["senkou_b"]:
+            live.append({**d, "mark_price": mp})
+    return jsonify({"status": "ok", "data": live})
+
+
 # ---------------------------------------------------------------------------
 # Background workers (must run for `flask run`, not only `python app.py`)
 # ---------------------------------------------------------------------------
@@ -746,4 +1001,4 @@ if _should_start_background_workers():
     ensure_background_workers()
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000)
+    socketio.run(app, host="0.0.0.0", port=5001)

@@ -30,6 +30,8 @@ class DataCache:
         self.ichimoku_bear: list = []
         self.ichimoku_classic_bull: list = []
         self.ichimoku_classic_bear: list = []
+        self.ema_pullback_buy: list = []
+        self.ema_pullback_sell: list = []
         self.futures_ready = False       
         self.ohlc_ready = False
         self.ema_ready = False
@@ -39,6 +41,8 @@ class DataCache:
         self.last_ichimoku_bear_symbols = set()
         self.last_ichimoku_classic_bull_symbols = set()
         self.last_ichimoku_classic_bear_symbols = set()
+        self.last_ema_pullback_buy_symbols = set()
+        self.last_ema_pullback_sell_symbols = set()
 
     def set_futures(self, data: list):
         with self._lock: self.futures = data
@@ -88,6 +92,18 @@ class DataCache:
 
     def get_ichimoku_classic_bear(self) -> list:
         with self._lock: return list(self.ichimoku_classic_bear)
+
+    def set_ema_pullback_buy(self, data: list):
+        with self._lock: self.ema_pullback_buy = data
+
+    def get_ema_pullback_buy(self) -> list:
+        with self._lock: return list(self.ema_pullback_buy)
+
+    def set_ema_pullback_sell(self, data: list):
+        with self._lock: self.ema_pullback_sell = data
+
+    def get_ema_pullback_sell(self) -> list:
+        with self._lock: return list(self.ema_pullback_sell)
 
     def get_futures_table(self) -> list:
         with self._lock:
@@ -597,6 +613,231 @@ def calc_emas(prices):
         return val
     return {"ema_10": ema(prices, 10), "ema_20": ema(prices, 20), "ema_100": ema(prices, 100)}
 
+
+def calc_ema_series(prices: list[float], n: int) -> list[float | None]:
+    """Return an EMA value for every bar in *prices*.
+
+    The first (n-1) entries are None (not enough data).  From index n-1
+    onward, a standard EMA is computed.
+    """
+    out: list[float | None] = [None] * len(prices)
+    if len(prices) < n:
+        return out
+    m = 2.0 / (n + 1)
+    val = sum(prices[:n]) / n
+    out[n - 1] = val
+    for idx in range(n, len(prices)):
+        val = (prices[idx] - val) * m + val
+        out[idx] = val
+    return out
+
+
+PULLBACK_LOOKBACK = 4  # check last N fully-closed bars
+
+
+def try_ema_pullback_buy(symbol: str, bars: list) -> dict | None:
+    """EMA Pullback Buy — hardened, checks the LAST fully-closed 5m bar.
+
+    Conditions (all must pass):
+      1. Close above EMA 10, 20, 100
+      2. EMA stacking: EMA 10 > EMA 20 > EMA 100 (clean uptrend)
+      3. EMA 20 slope rising: ema20[i] > ema20[i-5]
+      4. Low dips to or below EMA 10 (pullback into zone), close holds above
+      5. Rejection candle: lower wick >= 1.5× body, close in upper 1/3 of bar
+      6. Prior impulsive move: at least one large bullish bar in last 12 bars
+    """
+    if len(bars) < 108:
+        return None
+    i = _last_closed_bar_index(bars)
+    if i is None or i < 107:
+        return None
+
+    closes = [b["close"] for b in bars]
+    ema10s = calc_ema_series(closes, 10)
+    ema20s = calc_ema_series(closes, 20)
+    ema100s = calc_ema_series(closes, 100)
+
+    e10 = ema10s[i]
+    e20 = ema20s[i]
+    e100 = ema100s[i]
+    if e10 is None or e20 is None or e100 is None:
+        return None
+
+    bar = bars[i]
+    close_i = bar["close"]
+    open_i = bar["open"]
+    low_i = bar["low"]
+    high_i = bar["high"]
+
+    # --- Condition 1: close above all 3 EMAs ---
+    if not (close_i > e10 and close_i > e20 and close_i > e100):
+        return None
+
+    # --- Condition 2: EMA stacking order (clean uptrend) ---
+    if not (e10 > e20 > e100):
+        return None
+
+    # --- Condition 3: EMA 20 slope — must be rising ---
+    e20_prev = ema20s[i - 5] if i >= 5 else None
+    if e20_prev is None or e20 <= e20_prev:
+        return None
+
+    # --- Condition 4: Pullback rejection at EMA zone ---
+    if low_i > e10:
+        return None
+    if close_i <= e10:
+        return None
+
+    # --- Condition 5: Rejection candle shape + close position ---
+    body = abs(close_i - open_i)
+    lower_wick = min(close_i, open_i) - low_i
+    bar_range = high_i - low_i
+    if bar_range <= 0:
+        return None
+    if body > 0 and lower_wick < 1.5 * body:
+        return None
+    if body <= 0 and lower_wick < 0.5 * bar_range:
+        return None
+    # Close must be in upper 1/3 of bar range (strong rejection)
+    close_position = (close_i - low_i) / bar_range
+    if close_position < 0.66:
+        return None
+
+    # --- Condition 6: Prior impulsive bullish move in last 12 bars ---
+    # Compute median bar range for context, then find a large bullish bar
+    lookback_start = max(0, i - 12)
+    ranges = [bars[j]["high"] - bars[j]["low"] for j in range(lookback_start, i)]
+    if not ranges:
+        return None
+    median_range = sorted(ranges)[len(ranges) // 2]
+    if median_range <= 0:
+        return None
+    has_impulse = False
+    for j in range(lookback_start, i):
+        b = bars[j]
+        b_body = b["close"] - b["open"]  # positive = bullish
+        if b_body > 0 and b_body >= 1.5 * median_range:
+            has_impulse = True
+            break
+    if not has_impulse:
+        return None
+
+    # Determine candle pattern label
+    if body <= 0:
+        pattern = "Doji"
+    elif close_i >= open_i:
+        pattern = "Hammer"
+    else:
+        pattern = "Pinbar"
+
+    return {
+        "symbol": symbol, "close": close_i, "mark_price": close_i,
+        "ema_10": e10, "ema_20": e20, "ema_100": e100,
+        "candle_pattern": pattern,
+        "pct_above_100": round(((close_i - e100) / e100) * 100, 2),
+    }
+
+
+def try_ema_pullback_sell(symbol: str, bars: list) -> dict | None:
+    """EMA Pullback Sell — hardened, checks the LAST fully-closed 5m bar.
+
+    Conditions (all must pass):
+      1. Close below EMA 10, 20, 100
+      2. EMA stacking: EMA 10 < EMA 20 < EMA 100 (clean downtrend)
+      3. EMA 20 slope falling: ema20[i] < ema20[i-5]
+      4. High reaches to or above EMA 10 (rally into zone), close stays below
+      5. Rejection candle: upper wick >= 1.5× body, close in lower 1/3 of bar
+      6. Prior impulsive move: at least one large bearish bar in last 12 bars
+    """
+    if len(bars) < 108:
+        return None
+    i = _last_closed_bar_index(bars)
+    if i is None or i < 107:
+        return None
+
+    closes = [b["close"] for b in bars]
+    ema10s = calc_ema_series(closes, 10)
+    ema20s = calc_ema_series(closes, 20)
+    ema100s = calc_ema_series(closes, 100)
+
+    e10 = ema10s[i]
+    e20 = ema20s[i]
+    e100 = ema100s[i]
+    if e10 is None or e20 is None or e100 is None:
+        return None
+
+    bar = bars[i]
+    close_i = bar["close"]
+    open_i = bar["open"]
+    high_i = bar["high"]
+    low_i = bar["low"]
+
+    # --- Condition 1: close below all 3 EMAs ---
+    if not (close_i < e10 and close_i < e20 and close_i < e100):
+        return None
+
+    # --- Condition 2: EMA stacking order (clean downtrend) ---
+    if not (e10 < e20 < e100):
+        return None
+
+    # --- Condition 3: EMA 20 slope — must be falling ---
+    e20_prev = ema20s[i - 5] if i >= 5 else None
+    if e20_prev is None or e20 >= e20_prev:
+        return None
+
+    # --- Condition 4: Rally rejection at EMA zone ---
+    if high_i < e10:
+        return None
+    if close_i >= e10:
+        return None
+
+    # --- Condition 5: Rejection candle shape + close position ---
+    body = abs(close_i - open_i)
+    upper_wick = high_i - max(close_i, open_i)
+    bar_range = high_i - low_i
+    if bar_range <= 0:
+        return None
+    if body > 0 and upper_wick < 1.5 * body:
+        return None
+    if body <= 0 and upper_wick < 0.5 * bar_range:
+        return None
+    # Close must be in lower 1/3 of bar range (strong rejection)
+    close_position = (close_i - low_i) / bar_range
+    if close_position > 0.34:
+        return None
+
+    # --- Condition 6: Prior impulsive bearish move in last 12 bars ---
+    lookback_start = max(0, i - 12)
+    ranges = [bars[j]["high"] - bars[j]["low"] for j in range(lookback_start, i)]
+    if not ranges:
+        return None
+    median_range = sorted(ranges)[len(ranges) // 2]
+    if median_range <= 0:
+        return None
+    has_impulse = False
+    for j in range(lookback_start, i):
+        b = bars[j]
+        b_body = b["open"] - b["close"]  # positive = bearish
+        if b_body > 0 and b_body >= 1.5 * median_range:
+            has_impulse = True
+            break
+    if not has_impulse:
+        return None
+
+    if body <= 0:
+        pattern = "Doji"
+    elif close_i <= open_i:
+        pattern = "Shooting Star"
+    else:
+        pattern = "Inv Hammer"
+
+    return {
+        "symbol": symbol, "close": close_i, "mark_price": close_i,
+        "ema_10": e10, "ema_20": e20, "ema_100": e100,
+        "candle_pattern": pattern,
+        "pct_below_100": round(((e100 - close_i) / e100) * 100, 2),
+    }
+
 def compute_pdh_pdl(tickers, ohlc):
     above, below = [], []
     for sym, candle in ohlc.items():
@@ -667,6 +908,8 @@ def ema_refresh_loop():
                 ich_bear_list = []
                 ich_classic_bull_list = []
                 ich_classic_bear_list = []
+                ema_pb_buy_list = []
+                ema_pb_sell_list = []
 
                 def load_5m(sym):
                     _, bars = fetch_5m_ohlcv_one(sym, start, end)
@@ -676,7 +919,9 @@ def ema_refresh_loop():
                     bear = try_ichimoku_bear_match(sym, bars, start, end)
                     classic_bull = try_ichimoku_classic_bull(sym, bars)
                     classic_bear = try_ichimoku_classic_bear(sym, bars)
-                    return sym, e, bull, bear, classic_bull, classic_bear
+                    epb_buy = try_ema_pullback_buy(sym, bars)
+                    epb_sell = try_ema_pullback_sell(sym, bars)
+                    return sym, e, bull, bear, classic_bull, classic_bear, epb_buy, epb_sell
 
                 with ThreadPoolExecutor(max_workers=20) as ex:
                     syms = [f.get("symbol") for f in cache.futures if f.get("symbol")]
@@ -684,7 +929,7 @@ def ema_refresh_loop():
                     for fut in as_completed(f_map):
                         sym = f_map[fut]
                         try:
-                            _, e, bull, bear, cb, cbear = fut.result()
+                            _, e, bull, bear, cb, cbear, epb_b, epb_s = fut.result()
                         except Exception as exc:
                             log.debug("5m batch %s: %s", sym, exc)
                             continue
@@ -698,11 +943,17 @@ def ema_refresh_loop():
                             ich_classic_bull_list.append(cb)
                         if cbear:
                             ich_classic_bear_list.append(cbear)
+                        if epb_b:
+                            ema_pb_buy_list.append(epb_b)
+                        if epb_s:
+                            ema_pb_sell_list.append(epb_s)
                 cache.set_emas(res)
                 cache.set_ichimoku_stack(sorted(ich_list, key=lambda x: x["rvol"], reverse=True))
                 cache.set_ichimoku_bear(sorted(ich_bear_list, key=lambda x: x["rvol"], reverse=True))
                 cache.set_ichimoku_classic_bull(sorted(ich_classic_bull_list, key=lambda x: x["close"], reverse=True))
                 cache.set_ichimoku_classic_bear(sorted(ich_classic_bear_list, key=lambda x: x["close"], reverse=True))
+                cache.set_ema_pullback_buy(sorted(ema_pb_buy_list, key=lambda x: x["pct_above_100"], reverse=True))
+                cache.set_ema_pullback_sell(sorted(ema_pb_sell_list, key=lambda x: x["pct_below_100"], reverse=True))
         except Exception as err: log.error("EMA Error: %s", err)
         time.sleep(300)
 
@@ -758,10 +1009,37 @@ def ticker_refresh_loop():
                         d = next(i for i in conf_data if i["symbol"] == s)
                         socketio.emit("signal_alert", {"type": "CONFLUENCE", "symbol": s, "price": d["mark_price"], "detail": "PDH + EMA Trend", "color": "var(--md-purple)", "time": datetime.datetime.now().strftime("%H:%M:%S"), "is_historical": first_run})
 
-                    new_ema = (curr_ema if first_run else (curr_ema - cache.last_ema_symbols)) - curr_conf
-                    for s in new_ema:
-                        d = next(i for i in ema_data if i["symbol"] == s)
-                        socketio.emit("signal_alert", {"type": "SUPER MOMENTUM", "symbol": s, "price": d["mark_price"], "detail": "Strong EMA Trend", "color": "var(--md-blue)", "time": datetime.datetime.now().strftime("%H:%M:%S"), "is_historical": first_run})
+                    # EMA Pullback Buy alerts
+                    pb_buy_data = cache.get_ema_pullback_buy()
+                    curr_pb_buy = {x["symbol"] for x in pb_buy_data}
+                    new_pb_buy = curr_pb_buy if first_run else (curr_pb_buy - cache.last_ema_pullback_buy_symbols)
+                    for s in new_pb_buy:
+                        d = next(i for i in pb_buy_data if i["symbol"] == s)
+                        socketio.emit("signal_alert", {
+                            "type": "EMA PULLBACK BUY",
+                            "symbol": s,
+                            "price": d["close"],
+                            "detail": f"{d['candle_pattern']} rejection at EMA zone",
+                            "color": "var(--md-blue)",
+                            "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                            "is_historical": first_run,
+                        })
+
+                    # EMA Pullback Sell alerts
+                    pb_sell_data = cache.get_ema_pullback_sell()
+                    curr_pb_sell = {x["symbol"] for x in pb_sell_data}
+                    new_pb_sell = curr_pb_sell if first_run else (curr_pb_sell - cache.last_ema_pullback_sell_symbols)
+                    for s in new_pb_sell:
+                        d = next(i for i in pb_sell_data if i["symbol"] == s)
+                        socketio.emit("signal_alert", {
+                            "type": "EMA PULLBACK SELL",
+                            "symbol": s,
+                            "price": d["close"],
+                            "detail": f"{d['candle_pattern']} rejection at EMA zone",
+                            "color": "var(--md-red)",
+                            "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                            "is_historical": first_run,
+                        })
 
                     ich_data = cache.get_ichimoku_stack()
                     curr_ich = {x["symbol"] for x in ich_data}
@@ -829,6 +1107,8 @@ def ticker_refresh_loop():
                     cache.last_ichimoku_bear_symbols = curr_bear
                     cache.last_ichimoku_classic_bull_symbols = curr_classic_bull
                     cache.last_ichimoku_classic_bear_symbols = curr_classic_bear
+                    cache.last_ema_pullback_buy_symbols = curr_pb_buy
+                    cache.last_ema_pullback_sell_symbols = curr_pb_sell
                     first_run = False
         except Exception as err: log.error("Ticker Error: %s", err)
         time.sleep(10)
@@ -867,6 +1147,40 @@ def bpdl(): return jsonify({"status": "ok", "data": cache.get_below_pdl()})
 
 @app.route("/above-ema")
 def aema(): return jsonify({"status": "ok", "data": cache.get_above_ema()})
+
+@app.route("/ema-pullback-buy")
+def ema_pullback_buy_route():
+    data = cache.get_ema_pullback_buy()
+    tickers = cache.tickers
+    live = []
+    for d in data:
+        t = tickers.get(d["symbol"])
+        if not t:
+            continue
+        try:
+            mp = float(t.get("mark_price", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if mp > d["ema_10"] and mp > d["ema_20"] and mp > d["ema_100"]:
+            live.append({**d, "mark_price": mp})
+    return jsonify({"status": "ok", "data": live})
+
+@app.route("/ema-pullback-sell")
+def ema_pullback_sell_route():
+    data = cache.get_ema_pullback_sell()
+    tickers = cache.tickers
+    live = []
+    for d in data:
+        t = tickers.get(d["symbol"])
+        if not t:
+            continue
+        try:
+            mp = float(t.get("mark_price", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if mp < d["ema_10"] and mp < d["ema_20"] and mp < d["ema_100"]:
+            live.append({**d, "mark_price": mp})
+    return jsonify({"status": "ok", "data": live})
 
 @app.route("/pdh-ema-confluence")
 def conf(): return jsonify({"status": "ok", "data": cache.get_pdh_ema_confluence()})

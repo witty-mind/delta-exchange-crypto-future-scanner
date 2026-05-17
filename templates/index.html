@@ -38,6 +38,30 @@
             --md-amber: var(--amber);
             --radius: 12px;
             --radius-sm: 8px;
+            --signal-head-bg: rgba(12, 14, 18, 0.92);
+            --row-border: rgba(255, 255, 255, 0.04);
+        }
+
+        html.light {
+            --bg: #f4f5f7;
+            --surface: #ffffff;
+            --surface-hover: #f0f1f3;
+            --border: rgba(0, 0, 0, 0.08);
+            --text: rgba(0, 0, 0, 0.88);
+            --muted: rgba(0, 0, 0, 0.5);
+            --faint: rgba(0, 0, 0, 0.3);
+            --green: #16a34a;
+            --green-dim: rgba(22, 163, 74, 0.1);
+            --red: #dc2626;
+            --red-dim: rgba(220, 38, 38, 0.1);
+            --blue: #2563eb;
+            --blue-dim: rgba(37, 99, 235, 0.1);
+            --purple: #7c3aed;
+            --purple-dim: rgba(124, 58, 237, 0.1);
+            --amber: #d97706;
+            --amber-dim: rgba(217, 119, 6, 0.1);
+            --signal-head-bg: rgba(244, 245, 247, 0.95);
+            --row-border: rgba(0, 0, 0, 0.05);
         }
 
         *,
@@ -330,7 +354,7 @@
         tbody td {
             padding: 8px 12px;
             text-align: right;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            border-bottom: 1px solid var(--row-border);
             color: var(--text);
         }
 
@@ -366,7 +390,8 @@
 
         .feed-card .table-scroll {
             padding: 0;
-            height: calc(100vh - 49px); /* subtract card-head height */
+            height: calc(100vh - 49px);
+            /* subtract card-head height */
             overflow-y: auto;
         }
 
@@ -385,7 +410,7 @@
             position: sticky;
             top: 0;
             z-index: 2;
-            background: rgba(12, 14, 18, 0.92);
+            background: var(--signal-head-bg);
             backdrop-filter: blur(8px);
             font-weight: 600;
             color: var(--faint);
@@ -436,6 +461,106 @@
         .btn:hover {
             color: var(--text);
             border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .theme-toggle {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            cursor: pointer;
+            padding: 0;
+            overflow: hidden;
+            transition: background 0.35s, border-color 0.35s;
+            flex-shrink: 0;
+        }
+
+        .theme-toggle:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        html.light .theme-toggle:hover {
+            border-color: rgba(0, 0, 0, 0.18);
+        }
+
+        .theme-toggle .knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            box-shadow: 0 1px 4px rgba(99, 102, 241, 0.4);
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.35s, box-shadow 0.35s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        html.light .theme-toggle .knob {
+            transform: translateX(24px);
+            background: linear-gradient(135deg, #f59e0b, #f97316);
+            box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4);
+        }
+
+        .theme-toggle .icon {
+            width: 12px;
+            height: 12px;
+            fill: none;
+            stroke: white;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .theme-toggle .icon-moon {
+            display: block;
+        }
+
+        .theme-toggle .icon-sun {
+            display: none;
+        }
+
+        html.light .theme-toggle .icon-moon {
+            display: none;
+        }
+
+        html.light .theme-toggle .icon-sun {
+            display: block;
+        }
+
+        .theme-toggle .track-label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--faint);
+            pointer-events: none;
+            transition: opacity 0.25s;
+        }
+
+        .theme-toggle .track-label.label-dark {
+            right: 7px;
+            opacity: 0;
+        }
+
+        .theme-toggle .track-label.label-light {
+            left: 7px;
+            opacity: 0;
+        }
+
+        html:not(.light) .theme-toggle .track-label.label-dark {
+            opacity: 1;
+        }
+
+        html.light .theme-toggle .track-label.label-light {
+            opacity: 1;
         }
 
         .futures-section {
@@ -520,6 +645,70 @@
                 grid-column: 1 / -1;
             }
         }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .tab-btn {
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            color: var(--text);
+            background: var(--surface-hover);
+        }
+        .tab-btn.active {
+            background: var(--text);
+            color: var(--bg);
+            border-color: transparent;
+        }
+        html.light .tab-btn.active {
+            background: var(--blue);
+            color: #fff;
+        }
+        .scanner-grid .card[data-group] {
+            display: none;
+        }
+        .scanner-grid .card[data-group].show {
+            display: flex;
+            animation: tabEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        .scanner-grid .card-wide {
+            grid-column: 1 / -1;
+        }
+        @keyframes tabEnter {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--blue);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0 4px;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            margin-left: 6px;
+            line-height: 1;
+        }
     </style>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
@@ -533,6 +722,12 @@
                 <p>IST prior session levels · 5m EMA 10 / 20 / 100 · 5m Ichimoku stack</p>
             </div>
             <div class="meta">
+                <button type="button" class="theme-toggle" id="theme-toggle" title="Toggle theme">
+                    <span class="knob">
+                        <svg class="icon icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 0 1 11.21 3 7 7 0 1 0 21 12.79z"/></svg>
+                        <svg class="icon icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    </span>
+                </button>
                 <span id="live-pill" class="pill off"><span class="dot"></span> Feed</span>
                 <span id="total-count" class="pill">…</span>
             </div>
@@ -547,229 +742,26 @@
                 <span id="gainers-bar" class="g" style="width:0%"></span>
                 <span id="losers-bar" class="r" style="width:0%"></span>
             </div>
+
         </section>
 
+        <nav class="tabs">
+            <button class="tab-btn active" data-target="all">All Futures</button>
+            <button class="tab-btn" data-target="pdh">
+                PDH/PDL <span class="tab-badge" id="badge-pdh" style="display:none">0</span>
+            </button>
+            <button class="tab-btn" data-target="ema">
+                EMA Stack <span class="tab-badge" id="badge-ema" style="display:none">0</span>
+            </button>
+            <button class="tab-btn" data-target="ichi">
+                Ichimoku <span class="tab-badge" id="badge-ichi" style="display:none">0</span>
+            </button>
+        </nav>
+
         <div class="main-grid">
+
             <div class="scanner-grid">
-                <div class="card">
-                    <div class="card-head">
-                        <h2>Above prior day high</h2>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="pdh-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="pdh-count" style="background:var(--green-dim);color:var(--green)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>Mark</th>
-                                    <th>Above</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pdh-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-head">
-                        <h2>Below prior day low</h2>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="pdl-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="pdl-count" style="background:var(--red-dim);color:var(--red)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>Mark</th>
-                                    <th>Below</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pdl-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-head">
-                        <h2>Above 10 / 20 / 100 EMA</h2>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="ema-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="ema-count" style="background:var(--blue-dim);color:var(--blue)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>Mark</th>
-                                    <th>10</th>
-                                    <th>20</th>
-                                    <th>100</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ema-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-head">
-                        <h2>PDH + EMA stack</h2>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="conf-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="conf-count" style="background:var(--purple-dim);color:var(--purple)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>Mark</th>
-                                    <th>vs 100</th>
-                                </tr>
-                            </thead>
-                            <tbody id="conf-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-head">
-                        <h2>Ichimoku stack <span class="hint" style="max-width:none">9·26·52 · RVOL vs prior 50 · OI 5m</span></h2>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="ichi-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="ichi-count" style="background:var(--amber-dim);color:var(--amber)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>5m close</th>
-                                    <th>RVOL</th>
-                                    <th>Ten / Kij</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ichi-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-head">
-                        <h2>Ichimoku bear <span class="hint" style="max-width:none">9·26·52 · below cloud · TK↓ · RVOL vs prior 50 · OI 5m</span></h2>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="ichi-bear-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="ichi-bear-count" style="background:var(--red-dim);color:var(--red)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>5m close</th>
-                                    <th>RVOL</th>
-                                    <th>Ten / Kij</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ichi-bear-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!--  ICHIMOKU CLASSIC  (pure signal: TK × + Chikou + cloud breakout)  -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="card">
-                    <div class="card-head">
-                        <div style="display:flex;flex-direction:column;gap:2px">
-                            <h2>Ichimoku Classic
-                                <span style="font-size:0.68rem;font-weight:400;color:var(--green);margin-left:6px">&#9650; Bullish</span>
-                            </h2>
-                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
-                                TK crossover ↑ &nbsp;·&nbsp; Chikou (Lagging Span) above price &nbsp;·&nbsp; Cloud breakout ↑
-                            </span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="ichi-classic-bull-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="ichi-classic-bull-count" style="background:var(--green-dim);color:var(--green)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>5m close</th>
-                                    <th>Ten / Kij</th>
-                                    <th>Senkou A</th>
-                                    <th>Senkou B</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ichi-classic-bull-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-head">
-                        <div style="display:flex;flex-direction:column;gap:2px">
-                            <h2>Ichimoku Classic
-                                <span style="font-size:0.68rem;font-weight:400;color:var(--red);margin-left:6px">&#9660; Bearish</span>
-                            </h2>
-                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
-                                TK crossover ↓ &nbsp;·&nbsp; Chikou (Lagging Span) below price &nbsp;·&nbsp; Cloud breakdown ↓
-                            </span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span id="ichi-classic-bear-time" style="font-size:0.65rem;color:var(--faint)"></span>
-                            <span class="count" id="ichi-classic-bear-count" style="background:var(--red-dim);color:var(--red)">0</span>
-                        </div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>5m close</th>
-                                    <th>Ten / Kij</th>
-                                    <th>Senkou A</th>
-                                    <th>Senkou B</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ichi-classic-bear-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div><!-- /.scanner-grid -->
-
-            <div class="card feed-card">
-                <div class="card-head">
-                    <h2>Live alerts <span id="feed-time" style="font-size:0.65rem;color:var(--faint);font-weight:400;margin-left:6px"></span></h2>
-                    <button type="button" class="btn" id="clear-log">Clear</button>
-                </div>
-                <div class="table-scroll">
-                    <div class="signal-head">
-                        <div>Time</div>
-                        <div>Pair</div>
-                        <div>Signal</div>
-                        <div>Price</div>
-                        <div>Note</div>
-                    </div>
-                    <div id="signal-log">
-                        <div class="empty-cell">Waiting for socket…</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <section class="futures-section" aria-label="All perpetual contracts">
-            <div class="card">
+                <div class="card card-wide show" data-group="all">
                 <div class="card-head">
                     <div class="futures-head">
                         <h2>All perpetual futures</h2>
@@ -795,10 +787,279 @@
                     </table>
                 </div>
             </div>
-        </section>
+                <div class="card" data-group="pdh">
+                    <div class="card-head">
+                        <h2>Running Anove PDH</h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="pdh-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="pdh-count"
+                                style="background:var(--green-dim);color:var(--green)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Mark</th>
+                                    <th>Above</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdh-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card" data-group="pdh">
+                    <div class="card-head">
+                        <h2>Running below PDL</h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="pdl-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="pdl-count"
+                                style="background:var(--red-dim);color:var(--red)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Mark</th>
+                                    <th>Below</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdl-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card" data-group="ema">
+                    <div class="card-head">
+                        <div style="display:flex;flex-direction:column;gap:2px">
+                            <h2>EMA Pullback Buy
+                                <span style="font-size:0.68rem;font-weight:400;color:var(--green);margin-left:6px">&#9650; Long</span>
+                            </h2>
+                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
+                                Close &gt; 10/20/100 EMA &nbsp;&middot;&nbsp; EMA 10&gt;20&gt;100 &nbsp;&middot;&nbsp; EMA slope ↑ &nbsp;&middot;&nbsp; Rejection candle &nbsp;&middot;&nbsp; Prior impulse
+                            </span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ema-pb-buy-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ema-pb-buy-count"
+                                style="background:var(--green-dim);color:var(--green)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Close</th>
+                                    <th>Pattern</th>
+                                    <th>EMA 10</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ema-pb-buy-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card" data-group="ema">
+                    <div class="card-head">
+                        <div style="display:flex;flex-direction:column;gap:2px">
+                            <h2>EMA Pullback Sell
+                                <span style="font-size:0.68rem;font-weight:400;color:var(--red);margin-left:6px">&#9660; Short</span>
+                            </h2>
+                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
+                                Close &lt; 10/20/100 EMA &nbsp;&middot;&nbsp; EMA 10&lt;20&lt;100 &nbsp;&middot;&nbsp; EMA slope ↓ &nbsp;&middot;&nbsp; Rejection candle &nbsp;&middot;&nbsp; Prior impulse
+                            </span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ema-pb-sell-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ema-pb-sell-count"
+                                style="background:var(--red-dim);color:var(--red)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Close</th>
+                                    <th>Pattern</th>
+                                    <th>EMA 10</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ema-pb-sell-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card card-wide" data-group="ema">
+                    <div class="card-head">
+                        <h2>PDH + EMA stack</h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="conf-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="conf-count"
+                                style="background:var(--purple-dim);color:var(--purple)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Mark</th>
+                                    <th>vs 100</th>
+                                </tr>
+                            </thead>
+                            <tbody id="conf-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card" data-group="ichi">
+                    <div class="card-head">
+                        <h2>Ichimoku stack <span class="hint" style="max-width:none">9·26·52 · RVOL vs prior 50 · OI
+                                5m</span></h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-count"
+                                style="background:var(--amber-dim);color:var(--amber)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>RVOL</th>
+                                    <th>Ten / Kij</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card" data-group="ichi">
+                    <div class="card-head">
+                        <h2>Ichimoku bear <span class="hint" style="max-width:none">9·26·52 · below cloud · TK↓ · RVOL
+                                vs prior 50 · OI 5m</span></h2>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-bear-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-bear-count"
+                                style="background:var(--red-dim);color:var(--red)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>RVOL</th>
+                                    <th>Ten / Kij</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-bear-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!--  ICHIMOKU CLASSIC  (pure signal: TK × + Chikou + cloud breakout)  -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="card" data-group="ichi">
+                    <div class="card-head">
+                        <div style="display:flex;flex-direction:column;gap:2px">
+                            <h2>Ichimoku Classic
+                                <span
+                                    style="font-size:0.68rem;font-weight:400;color:var(--green);margin-left:6px">&#9650;
+                                    Bullish</span>
+                            </h2>
+                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
+                                TK crossover ↑ &nbsp;·&nbsp; Chikou (Lagging Span) above price &nbsp;·&nbsp; Cloud
+                                breakout ↑
+                            </span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-classic-bull-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-classic-bull-count"
+                                style="background:var(--green-dim);color:var(--green)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>Ten / Kij</th>
+                                    <th>Senkou A</th>
+                                    <th>Senkou B</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-classic-bull-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card" data-group="ichi">
+                    <div class="card-head">
+                        <div style="display:flex;flex-direction:column;gap:2px">
+                            <h2>Ichimoku Classic
+                                <span style="font-size:0.68rem;font-weight:400;color:var(--red);margin-left:6px">&#9660;
+                                    Bearish</span>
+                            </h2>
+                            <span style="font-size:0.67rem;color:var(--faint);font-weight:400">
+                                TK crossover ↓ &nbsp;·&nbsp; Chikou (Lagging Span) below price &nbsp;·&nbsp; Cloud
+                                breakdown ↓
+                            </span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span id="ichi-classic-bear-time" style="font-size:0.65rem;color:var(--faint)"></span>
+                            <span class="count" id="ichi-classic-bear-count"
+                                style="background:var(--red-dim);color:var(--red)">0</span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>5m close</th>
+                                    <th>Ten / Kij</th>
+                                    <th>Senkou A</th>
+                                    <th>Senkou B</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ichi-classic-bear-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div><!-- /.scanner-grid -->
+
+            <div class="card feed-card">
+                <div class="card-head">
+                    <h2>Live alerts <span id="feed-time"
+                            style="font-size:0.65rem;color:var(--faint);font-weight:400;margin-left:6px"></span></h2>
+                    <button type="button" class="btn" id="clear-log">Clear</button>
+                </div>
+                <div class="table-scroll">
+                    <div class="signal-head">
+                        <div>Time</div>
+                        <div>Pair</div>
+                        <div>Signal</div>
+                        <div>Price</div>
+                        <div>Note</div>
+                    </div>
+                    <div id="signal-log">
+                        <div class="empty-cell">Waiting for socket…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
     </div>
 
-    <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
 
     <script>
         (function () {
@@ -879,6 +1140,33 @@
             }).join('');
         }
 
+
+        const prevSymbols = {};
+        const unreadCounts = { pdh: 0, ema: 0, ichi: 0 };
+        const urlToTab = {
+            '/above-pdh': 'pdh',
+            '/below-pdl': 'pdh',
+            '/pdh-ema-confluence': 'ema',
+            '/ema-pullback-buy': 'ema',
+            '/ema-pullback-sell': 'ema',
+            '/ichimoku-stack': 'ichi',
+            '/ichimoku-bear': 'ichi',
+            '/ichimoku-classic-bull': 'ichi',
+            '/ichimoku-classic-bear': 'ichi'
+        };
+
+        function updateBadge(tab) {
+            let badge = document.getElementById('badge-' + tab);
+            if (badge) {
+                if (unreadCounts[tab] > 0) {
+                    badge.textContent = unreadCounts[tab];
+                    badge.style.display = 'inline-flex';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+
         function load(url, cb, errCb) {
             const ctrl = new AbortController();
             const t = setTimeout(() => ctrl.abort(), 18000);
@@ -888,7 +1176,27 @@
                     if (!r.ok) throw new Error(String(r.status));
                     return r.json();
                 })
-                .then(cb)
+                .then(res => {
+                    if (res && res.data && urlToTab[url]) {
+                        let currentSymbols = new Set(res.data.map(d => d.symbol));
+                        if (prevSymbols[url]) {
+                            let added = 0;
+                            currentSymbols.forEach(sym => {
+                                if (!prevSymbols[url].has(sym)) added++;
+                            });
+                            if (added > 0) {
+                                let tab = urlToTab[url];
+                                let btn = document.querySelector(`.tab-btn[data-target="${tab}"]`);
+                                if (btn && !btn.classList.contains('active')) {
+                                    unreadCounts[tab] += added;
+                                    updateBadge(tab);
+                                }
+                            }
+                        }
+                        prevSymbols[url] = currentSymbols;
+                    }
+                    cb(res);
+                })
                 .catch(() => {
                     clearTimeout(t);
                     if (errCb) errCb();
@@ -908,8 +1216,7 @@
                 document.getElementById('futures-body').innerHTML = emptyRows(5, 'Could not load futures. Check network or API.');
             });
 
-            load('/above-pdh', res =>
-            {
+            load('/above-pdh', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 20).map(d => `<tr><td>${d.symbol}</td><td class="mono">${fmt(d.mark_price, 4)}</td><td class="up">+${fmt(d.pct_above)}%</td></tr>`).join('')
@@ -919,8 +1226,7 @@
                 document.getElementById('pdh-body').innerHTML = rows;
             });
 
-            load('/below-pdl', res =>
-            {
+            load('/below-pdl', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 20).map(d => `<tr><td>${d.symbol}</td><td class="mono">${fmt(d.mark_price, 4)}</td><td class="down">−${fmt(d.pct_below)}%</td></tr>`).join('')
@@ -930,25 +1236,37 @@
                 document.getElementById('pdl-body').innerHTML = rows;
             });
 
-            load('/above-ema', res =>
-            {
+            load('/ema-pullback-buy', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 20).map(d => `<tr>
                         <td>${d.symbol}</td>
-                        <td class="mono">${fmt(d.mark_price, 4)}</td>
+                        <td class="mono up">${fmt(d.mark_price, 4)}</td>
+                        <td><span class="tag" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green)44">${d.candle_pattern}</span></td>
                         <td class="mono">${fmt(d.ema_10, 4)}</td>
-                        <td class="mono">${fmt(d.ema_20, 4)}</td>
-                        <td class="mono">${fmt(d.ema_100, 4)}</td>
                     </tr>`).join('')
-                    : emptyRows(5, 'No matches (EMAs need ~100×5m bars)');
-                document.getElementById('ema-count').textContent = all.length;
-                document.getElementById('ema-time').textContent = nowTime();
-                document.getElementById('ema-body').innerHTML = rows;
+                    : emptyRows(4, 'No pullback buy signals on last closed 5m bar');
+                document.getElementById('ema-pb-buy-count').textContent = all.length;
+                document.getElementById('ema-pb-buy-time').textContent = nowTime();
+                document.getElementById('ema-pb-buy-body').innerHTML = rows;
             });
 
-            load('/pdh-ema-confluence', res =>
-            {
+            load('/ema-pullback-sell', res => {
+                const all = res.data || [];
+                const rows = all.length
+                    ? all.slice(0, 20).map(d => `<tr>
+                        <td>${d.symbol}</td>
+                        <td class="mono down">${fmt(d.mark_price, 4)}</td>
+                        <td><span class="tag" style="background:var(--red-dim);color:var(--red);border:1px solid var(--red)44">${d.candle_pattern}</span></td>
+                        <td class="mono">${fmt(d.ema_10, 4)}</td>
+                    </tr>`).join('')
+                    : emptyRows(4, 'No pullback sell signals on last closed 5m bar');
+                document.getElementById('ema-pb-sell-count').textContent = all.length;
+                document.getElementById('ema-pb-sell-time').textContent = nowTime();
+                document.getElementById('ema-pb-sell-body').innerHTML = rows;
+            });
+
+            load('/pdh-ema-confluence', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 20).map(d => `<tr>
@@ -962,8 +1280,7 @@
                 document.getElementById('conf-body').innerHTML = rows;
             });
 
-            load('/ichimoku-stack', res =>
-            {
+            load('/ichimoku-stack', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 20).map(d => `<tr>
@@ -978,8 +1295,7 @@
                 document.getElementById('ichi-body').innerHTML = rows;
             });
 
-            load('/ichimoku-bear', res =>
-            {
+            load('/ichimoku-bear', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 20).map(d => `<tr>
@@ -994,8 +1310,7 @@
                 document.getElementById('ichi-bear-body').innerHTML = rows;
             });
 
-            load('/ichimoku-classic-bull', res =>
-            {
+            load('/ichimoku-classic-bull', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 30).map(d => `<tr>
@@ -1011,8 +1326,7 @@
                 document.getElementById('ichi-classic-bull-body').innerHTML = rows;
             });
 
-            load('/ichimoku-classic-bear', res =>
-            {
+            load('/ichimoku-classic-bear', res => {
                 const all = res.data || [];
                 const rows = all.length
                     ? all.slice(0, 30).map(d => `<tr>
@@ -1076,12 +1390,67 @@
                     t.innerHTML = `<strong>${data.symbol}</strong> · ${data.type}<br><span style="color:var(--muted);font-size:0.75rem">${data.detail}</span>`;
                     document.getElementById('notifications').prepend(t);
                     setTimeout(() => t.remove(), 5200);
-                    document.getElementById('alertSound').play().catch(() => { });
+
                 }
             });
         } else {
             livePill.innerHTML = '<span class="dot"></span> No feed';
         }
+
+        /* ── Theme toggle ────────────────────────────────── */
+        (function () {
+            const btn = document.getElementById('theme-toggle');
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light') {
+                document.documentElement.classList.add('light');
+            }
+            btn.addEventListener('click', function () {
+                const isLight = document.documentElement.classList.toggle('light');
+                localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            });
+        })();
+
+        /* ── Tabs toggle ────────────────────────────────── */
+        (function() {
+            const tabs = document.querySelectorAll('.tab-btn');
+            const cards = document.querySelectorAll('.scanner-grid .card[data-group]');
+            
+            // Initialize: show active tab
+            cards.forEach(card => {
+                if (card.dataset.group === 'all') {
+                    card.style.display = 'flex';
+                    card.classList.add('show');
+                } else {
+                    card.style.display = 'none';
+                    card.classList.remove('show');
+                }
+            });
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    const targetGroup = tab.dataset.target;
+                    
+                    if (unreadCounts[targetGroup] !== undefined) {
+                        unreadCounts[targetGroup] = 0;
+                        updateBadge(targetGroup);
+                    }
+                    
+                    cards.forEach(card => {
+                        if (card.dataset.group === targetGroup) {
+                            card.style.display = 'flex';
+                            void card.offsetWidth; // Reflow
+                            card.classList.add('show');
+                        } else {
+                            card.style.display = 'none';
+                            card.classList.remove('show');
+                        }
+                    });
+                });
+            });
+        })();
     </script>
 </body>
 
